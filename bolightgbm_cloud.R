@@ -37,9 +37,9 @@ hs <- makeParamSet(
 #  muy pronto esto se leera desde un archivo formato .yaml
 PARAM  <- list()
 
-PARAM$experimento  <- "HT7231"
+PARAM$experimento  <- "HT_auc_basic_params_200_iters"
 
-PARAM$input$dataset       <- "C:/Users/programadorweb4/Documents/m_d_m/tt1/tt1/train.csv"
+PARAM$input$dataset       <- "./datasets/train.csv"
 
 PARAM$trainingstrategy$undersampling  <-  1.0 
 PARAM$trainingstrategy$semilla_azar   <- 491
@@ -157,7 +157,7 @@ EstimarGanancia_lightgbm  <- function( x )
 #Aqui empieza el programa
 
 #Aqui se debe poner la carpeta de la computadora local
-setwd("C:/Users/programadorweb4/Documents/m_d_m/tt1/tt1/")   #Establezco el Working Directory
+setwd("~/buckets/b1/")   #Establezco el Working Directory
 
 #cargo el dataset donde voy a entrenar el modelo
 dataset  <- fread( PARAM$input$dataset, stringsAsFactors = TRUE )

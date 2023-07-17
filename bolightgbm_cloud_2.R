@@ -37,14 +37,14 @@ hs <- makeParamSet(
 #  muy pronto esto se leera desde un archivo formato .yaml
 PARAM  <- list()
 
-PARAM$experimento  <- "HT7231"
+PARAM$experimento  <- "HT_auc_basic_params_2000_iters_metric_f1"
 
-PARAM$input$dataset       <- "C:/Users/programadorweb4/Documents/m_d_m/tt1/tt1/train.csv"
+PARAM$input$dataset       <- "./datasets/train.csv"
 
 PARAM$trainingstrategy$undersampling  <-  1.0 
 PARAM$trainingstrategy$semilla_azar   <- 491
 
-PARAM$hyperparametertuning$iteraciones <- 200
+PARAM$hyperparametertuning$iteraciones <- 2000
 PARAM$hyperparametertuning$xval_folds  <- 5
 
 PARAM$hyperparametertuning$semilla_azar  <- 491
@@ -74,6 +74,15 @@ loguear  <- function( reg, arch=NA, folder="./exp/", ext=".txt", verbose=TRUE )
   if( verbose )  cat( linea )   #imprimo por pantalla
 }
 
+fganancia_logistic_lightgbm  <- function( probs, datos) 
+{
+  labels = getinfo(datos,"label")
+  F1 = get.max_f1(probs,labels)[1]
+  return( list( "name"= "ganancia", 
+                "value"=  F1,
+                "higher_better"= TRUE ) )
+}
+
 #------------------------------------------------------------------------------
 #esta funcion solo puede recibir los parametros que se estan optimizando
 #el resto de los parametros se pasan como variables globales, la semilla del mal ...
@@ -88,7 +97,7 @@ EstimarGanancia_lightgbm  <- function( x )
   kfolds  <- PARAM$hyperparametertuning$xval_folds   # cantidad de folds para cross validation
   
   param_basicos  <- list( objective= "binary",
-                          metric= "auc",
+                          metric= "custom",
                           is_unbalance = TRUE,
                           first_metric_only= TRUE,
                           boost_from_average= TRUE,
@@ -111,7 +120,7 @@ EstimarGanancia_lightgbm  <- function( x )
   
   set.seed( PARAM$hyperparametertuning$semilla_azar )
   modelocv  <- lgb.cv( data= dtrain,
-                       eval= 'auc',
+                       eval= fganancia_logistic_lightgbm,
                        stratified= TRUE, #sobre el cross validation
                        nfold= kfolds,    #folds del cross validation
                        param= param_completo,
@@ -119,7 +128,7 @@ EstimarGanancia_lightgbm  <- function( x )
   )
   
   #obtengo la ganancia
-  ganancia <- modelocv$best_score
+  ganancia  <- unlist(modelocv$record_evals$valid$ganancia$eval)[ modelocv$best_iter ]
   
   param_completo$num_iterations <- modelocv$best_iter  #asigno el mejor num_iterations
   param_completo["early_stopping_rounds"]  <- NULL     #elimino de la lista el componente  "early_stopping_rounds"
@@ -157,7 +166,7 @@ EstimarGanancia_lightgbm  <- function( x )
 #Aqui empieza el programa
 
 #Aqui se debe poner la carpeta de la computadora local
-setwd("C:/Users/programadorweb4/Documents/m_d_m/tt1/tt1/")   #Establezco el Working Directory
+setwd("~/buckets/b1/")   #Establezco el Working Directory
 
 #cargo el dataset donde voy a entrenar el modelo
 dataset  <- fread( PARAM$input$dataset, stringsAsFactors = TRUE )

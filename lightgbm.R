@@ -32,7 +32,8 @@ library(ROCR)
 require("data.table")
 require("lightgbm")
 
-
+rm( list=ls() )  #remove all objects
+gc()             #garbage collection
 
 #LECTURA DE LOS DATOS
 #data <- read.csv("C:/Users/programadorweb4/Documents/m_d_m/tt1/tt1/train.csv", 
@@ -99,12 +100,12 @@ ROCR_perf_test <- performance(ROCR_pred_test,'tpr','fpr')
 plot(ROCR_perf_test,colorize=TRUE,print.cutoffs.at=seq(0.1,by=0.1))
 cost_perf = performance(ROCR_pred_test, "cost")
 #para reducir los FN a costo de incrementar los FP, obtiene un mejor accuracy
-ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
-
+threshold <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
+threshold
 preds = data.table(id=dtest[,id], target=predict(modelo, dtest_pred))
 colnames(preds)[1] = "id"
 
-preds[, class := ifelse(target > 0.85, 1, 0)]
+preds[, class := ifelse(target > threshold, 1, 0)]
 #preds
 
 #predicho
@@ -121,8 +122,81 @@ confusion_matrix
 accuracy <- sum(preds$class == dtest$Response) / nrow(dtest)
 accuracy
 
-tb_importancia  <-  as.data.table( lgb.importance(modelo) ) 
-tb_importancia
+results <- data.table("model" = "basic", "auc" = modelo$best_score, "accuracy" = accuracy)
+results
+
+#entrenando un nuevo modelo con los hps obtenidos de la bo del exp1:
+  #200 iters
+  #objetivo: auc
+  #hps básicos
+
+params = list(
+  objective = "binary",
+  metric = "auc",
+  is_unbalance = TRUE,
+  max_depth = -1,
+  min_gain_to_split = 0.0,
+  lambda_l1= 0.0,
+  lambda_l2= 0.0,
+  learning_rate = 0.0053211843396746,
+  feature_fraction = 0.544331366497683,
+  min_data_in_leaf = 71,
+  num_leaves = 40,
+  seed = 491
+)
+
+#validation data
+valids = list(test = dtest_f)
+
+#train model
+modelo  <- lgb.train( data= dtrain_f,
+                      param= params,
+                      nrounds = 1984, #alias del num_iterations
+                      valids,
+                      early_stopping_rounds = as.integer(50 + 5/0.0053211843396746),
+                      categorical_feature = cat_feats
+)
+
+print(modelo$best_score)
+print(modelo$best_iter)
+
+#prediction
+dtest_pred <- data.matrix( dtest[, campos_buenos, with=FALSE ])
+pred = predict(modelo, dtest_pred)
+#pred
+
+#obtener el mejor umbral
+ROCR_pred_test <- prediction(pred, dtest$Response)
+ROCR_perf_test <- performance(ROCR_pred_test,'tpr','fpr')
+plot(ROCR_perf_test,colorize=TRUE,print.cutoffs.at=seq(0.1,by=0.1))
+cost_perf = performance(ROCR_pred_test, "cost")
+#para reducir los FN a costo de incrementar los FP, obtiene un mejor accuracy
+threshold <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
+threshold
+preds = data.table(id=dtest[,id], target=predict(modelo, dtest_pred))
+colnames(preds)[1] = "id"
+
+preds[, class := ifelse(target > threshold, 1, 0)]
+#preds
+
+#predicho
+preds[class == 0, .N]
+preds[class == 1, .N]
+
+#real
+dtest[Response == 0, .N]
+dtest[Response == 1, .N]
+
+confusion_matrix <- table(PredictedValue = preds$class, ActualValue = dtest$Response)
+confusion_matrix
+
+accuracy <- sum(preds$class == dtest$Response) / nrow(dtest)
+accuracy
+
+newResults <- data.table("model" = "exp1", "auc" = modelo$best_score, "accuracy" = accuracy)
+results <- rbindlist(list(results, newResults))
+results
+
 
 
 

@@ -14,6 +14,9 @@ require("lightgbm")
 #paquetes necesarios para la Bayesian Optimization
 require("DiceKriging")
 require("mlrMBO")
+require("caret")
+require("pROC")
+require("MLmetrics")
 
 options(error = function() { 
   traceback(20); 
@@ -37,7 +40,7 @@ hs <- makeParamSet(
 #  muy pronto esto se leera desde un archivo formato .yaml
 PARAM  <- list()
 
-PARAM$experimento  <- "HT_auc_basic_params_2000_iters_metric_f1"
+PARAM$experimento  <- "HT_auc_basic_params_2000_iters_metric_f1_fake"
 
 PARAM$input$dataset       <- "./datasets/train.csv"
 
@@ -76,10 +79,22 @@ loguear  <- function( reg, arch=NA, folder="./exp/", ext=".txt", verbose=TRUE )
 
 fganancia_logistic_lightgbm  <- function( probs, datos) 
 {
-  labels = getinfo(datos,"label")
-  F1 = get.max_f1(probs,labels)[1]
+  etiquetas = get_field(datos, "label")
+  roc_obj <- roc(etiquetas, probs)
+  
+  # Obtener los valores de F1 para diferentes umbrales
+  coordenadas <- coords(roc_obj, "best", ret=c("threshold", "f1"))
+  
+  # Obtener el umbral y valor máximo de F1
+  umbral_max_f1 <- coordenadas$threshold
+  
+  predicciones <- ifelse(probs >= umbral_max_f1, 1, 0)
+  
+  # Calcular el valor de F1
+  f1 <- F1_Score(predicciones, etiquetas)
+  
   return( list( "name"= "ganancia", 
-                "value"=  F1,
+                "value"=  f1,
                 "higher_better"= TRUE ) )
 }
 
@@ -197,7 +212,7 @@ if( file.exists(klog) )
 #los campos que se van a utilizar
 campos_buenos <- setdiff(colnames(dataset), c("id", "Response"))
 GLOBAL_cat_feats <- c("Gender", "Driving_License", "Region_Code", "Previously_Insured", 
-               "Vehicle_Age", "Vehicle_Damage", "Policy_Sales_Channel")
+                      "Vehicle_Age", "Vehicle_Damage", "Policy_Sales_Channel")
 set.seed( PARAM$trainingstrategy$semilla_azar )
 sample <- sample(c(TRUE, FALSE), nrow(dataset), replace=TRUE, prob=c(0.7, 0.3))
 dtrain <- dataset[sample, ]

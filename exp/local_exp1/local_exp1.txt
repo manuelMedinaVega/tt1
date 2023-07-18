@@ -1,0 +1,3 @@
+fecha	gamma	alpha	lambda	subsample	tree_method	grow_policy	max_bin	max_leaves	scale_pos_weight	eta	colsample_bytree	min_child_weight	max_depth	nrounds	ganancia	iteracion
+20230717 223646	0	0	0	1	auto	depthwise	256	0	1	0.119338482115272	0.655330801359378	4	11	7	4.01995886348347	1
+20230717 231322	0	0	0	1	auto	depthwise	256	0	1	0.0700801466553821	0.444766443071421	0	24	42	3.98675603558621	2

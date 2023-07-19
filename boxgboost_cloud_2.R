@@ -172,13 +172,13 @@ data <- data %>%
 #creo la carpeta donde va el experimento
 # HT  representa  Hiperparameter Tuning
 dir.create( "./exp/",  showWarnings = FALSE ) 
-dir.create( "./exp/HT_xgboost_exp1/", showWarnings = FALSE )
-setwd("./exp/HT_xgboost_exp1/")   #Establezco el Working Directory DEL EXPERIMENTO
+dir.create( "./exp/HT_xgboost_exp2/", showWarnings = FALSE )
+setwd("./exp/HT_xgboost_exp2/")   #Establezco el Working Directory DEL EXPERIMENTO
 
 
 #en estos archivos quedan los resultados
-kbayesiana  <- "HT_xgboost_exp1.RDATA"
-klog        <- "HT_xgboost_exp1.txt"
+kbayesiana  <- "HT_xgboost_exp2.RDATA"
+klog        <- "HT_xgboost_exp2.txt"
 
 
 GLOBAL_iteracion  <- 0   #inicializo la variable global

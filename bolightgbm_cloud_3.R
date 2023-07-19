@@ -40,7 +40,7 @@ hs <- makeParamSet(
 #  muy pronto esto se leera desde un archivo formato .yaml
 PARAM  <- list()
 
-PARAM$experimento  <- "HT_auc_basic_params_2000_iters_metric_f1_fake"
+PARAM$experimento  <- "HT_auc_basic_params_500_iters"
 
 PARAM$input$dataset       <- "./datasets/train.csv"
 

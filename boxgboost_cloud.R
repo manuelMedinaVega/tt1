@@ -23,6 +23,7 @@ require("mlrMBO")
 require("caret")
 require("pROC")
 require("MLmetrics")
+require("dplyr")
 
 
 kBO_iter  <- 100   #cantidad de iteraciones de la Optimizacion Bayesiana
@@ -34,7 +35,7 @@ hs <- makeParamSet(
   makeIntegerParam("min_child_weight", lower=  0L   , upper=   50L),    #groseramente equivalente a  min_data_in_leaf
   makeIntegerParam("max_depth",        lower=  2L   , upper=   50L),    #profundidad del arbol, NO es equivalente a num_leaves
   makeIntegerParam("gamma",            lower=  0L   , upper=   100L),    
-  makeNumericParam("subsample",        lower= 0.25, 1),
+  makeNumericParam("subsample",        lower= 0.25, 1)
 )
 
 ksemilla_azar  <- 491  #Aqui poner la propia semilla
@@ -104,14 +105,14 @@ EstimarGanancia_xgboost  <- function( x )
   
   #otros hiperparmetros, que por ahora dejo en su valor default
   param_basicos  <- list( #gamma=                0.0,  #por ahora, lo dejo fijo, equivalente a  min_gain_to_split
-                          alpha=                0.0,  #por ahora, lo dejo fijo, equivalente a  lambda_l1
-                          lambda=               0.0,  #por ahora, lo dejo fijo, equivalente a  lambda_l2
-                          #subsample=            1.0,  #por ahora, lo dejo fijo
-                          tree_method=       "auto",  #por ahora lo dejo fijo, pero ya lo voy a cambiar a "hist"
-                          grow_policy=  "depthwise",  #ya lo voy a cambiar a "lossguide"
-                          max_bin=            256,    #por ahora fijo
-                          max_leaves=           0,    #ya lo voy a cambiar
-                          scale_pos_weight=     negative_cases/positive_cases   #por ahora, lo dejo fijo
+    alpha=                0.0,  #por ahora, lo dejo fijo, equivalente a  lambda_l1
+    lambda=               0.0,  #por ahora, lo dejo fijo, equivalente a  lambda_l2
+    #subsample=            1.0,  #por ahora, lo dejo fijo
+    tree_method=       "auto",  #por ahora lo dejo fijo, pero ya lo voy a cambiar a "hist"
+    grow_policy=  "depthwise",  #ya lo voy a cambiar a "lossguide"
+    max_bin=            256,    #por ahora fijo
+    max_leaves=           0,    #ya lo voy a cambiar
+    scale_pos_weight=     negative_cases/positive_cases   #por ahora, lo dejo fijo
   )
   
   param_completo  <- c( param_basicos, x )

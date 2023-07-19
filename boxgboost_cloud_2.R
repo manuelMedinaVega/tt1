@@ -133,7 +133,8 @@ EstimarGanancia_xgboost  <- function( x )
   )
   
   #obtengo la ganancia
-  ganancia   <- unlist( modelocv$evaluation_log[ , test_ganancia_mean] )[ modelocv$best_iter ] 
+  #ganancia   <- unlist( modelocv$evaluation_log[ , test_ganancia_mean] )[ modelocv$best_iter ] 
+  ganancia   <- unlist( modelocv$evaluation_log[ , test_auc_mean] )[ modelocv$best_iteration ]
   
   ganancia_normalizada  <- ganancia#* kfolds     #normailizo la ganancia
   

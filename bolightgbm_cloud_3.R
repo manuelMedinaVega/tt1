@@ -143,7 +143,9 @@ EstimarGanancia_lightgbm  <- function( x )
   )
   
   #obtengo la ganancia
-  ganancia  <- unlist(modelocv$record_evals$valid$ganancia$eval)[ modelocv$best_iter ]
+  #ganancia  <- unlist(modelocv$record_evals$valid$ganancia$eval)[ modelocv$best_iter ]
+  ganancia  <- unlist(modelocv$record_evals$valid$auc$eval)[ modelocv$best_iter ]
+  #ganancia <- modelocv$best_score
   
   param_completo$num_iterations <- modelocv$best_iter  #asigno el mejor num_iterations
   param_completo["early_stopping_rounds"]  <- NULL     #elimino de la lista el componente  "early_stopping_rounds"

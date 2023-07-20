@@ -9,6 +9,9 @@ require("xgboost")
 require("caret")
 require("pROC")
 require("MLmetrics")
+library(dplyr)
+library(plyr)
+library(ROCR)
 
 #cargo el dataset donde voy a entrenar
 data  <- fread("C:/Users/programadorweb4/Documents/m_d_m/tt1/tt1/train.csv", stringsAsFactors= TRUE)
@@ -112,39 +115,22 @@ xgb.plot.importance(importance_matrix = importance_matrix)
 
 
 #CON HPS DE BO
-fganancia_logistic_xgboost   <- function( probs, datos) 
-{
-  etiquetas = getinfo(datos, "label")
-  roc_obj <- roc(etiquetas, probs)
-  
-  # Obtener los valores de F1 para diferentes umbrales
-  coordenadas <- coords(roc_obj, "best", ret=c("threshold", "f1"))
-  
-  # Obtener el umbral y valor máximo de F1
-  umbral_max_f1 <- coordenadas$threshold
-  
-  predicciones <- ifelse(probs >= umbral_max_f1, 1, 0)
-  
-  # Calcular el valor de F1
-  f1 <- F1_Score(predicciones, etiquetas)
-  
-  return(  list("metric" = "ganancia", "value" = f1 ) )
-}
+
 modelo  <- xgb.train( data= dtrain_f,
                       param= list( objective=       "binary:logistic",
-                                   max_depth=           6,#profundidad máxima de un árbo, default=6
-                                   min_child_weight=    9,#suma mínima de pesos de la instancia (hessian) necesaria en un hijo, default=1
-                                   eta=                 0.954883581841952,#alias de learning_rate, default=0.3
-                                   colsample_bytree=    0.612642310194921,#subsample ratio of columns de cada arbol, default=1
-                                   gamma=               86,#alias de min_split_loss, Minimum loss reduction required to make a further partition on a leaf node of the tree, default=0
+                                   max_depth=           398,#profundidad máxima de un árbo, default=6
+                                   min_child_weight=    16,#suma mínima de pesos de la instancia (hessian) necesaria en un hijo, default=1
+                                   eta=                 0.0100318254990385,#alias de learning_rate, default=0.3
+                                   colsample_bytree=    0.390772162187605,#subsample ratio of columns de cada arbol, default=1
+                                   gamma=               14,#alias de min_split_loss, Minimum loss reduction required to make a further partition on a leaf node of the tree, default=0
                                    alpha=               0.0,#L1 regularization
                                    lambda=              0.0,#L2 regularization
-                                   subsample=           0.333725101807572,#subsample ratio de las instancias de entrenamiento
+                                   subsample=           0.832137528074749,#subsample ratio de las instancias de entrenamiento
                                    scale_pos_weight=    negative_cases/positive_cases,#controla el balance de pesos positivo y negativo, útil para clases desbalanceadas
-                                   eval_metric=fganancia_logistic_xgboost
+                                   eval_metric='auc'
                       ),
                       #base_score= mean( getinfo(dtrain, "label")),
-                      nrounds= 11
+                      nrounds= 6579
 )
 
 #aplico el modelo a los datos nuevos
@@ -166,3 +152,20 @@ f1 <- F1_Score(predicciones_3, test_labels$Response)
 f1
 
 confusionMatrix(table(predicciones_3, test_labels$Response))
+
+#maximizando accuracy
+ROCR_pred_test <- prediction(pred, test_labels$Response)
+ROCR_perf_test <- ROCR::performance(ROCR_pred_test, 'tpr', 'fpr')
+plot(ROCR_perf_test, colorize=TRUE, print.cutoffs.at=seq(0.1,by=0.1))
+cost_perf = ROCR::performance(ROCR_pred_test, "cost")
+#para reducir los FN a costo de incrementar los FP, obtiene un mejor accuracy
+umbral_max_acc_2 <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
+umbral_max_acc_2
+
+predicciones_3 <- ifelse(pred >= umbral_max_acc_2, 1, 0)
+
+confusionMatrix(table(predicciones_3, test_labels$Response))
+
+importance_matrix <- xgb.importance(model = modelo)
+print(importance_matrix)
+xgb.plot.importance(importance_matrix = importance_matrix)

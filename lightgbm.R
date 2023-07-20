@@ -29,6 +29,8 @@ library(caret)
 library(caTools)
 library(ROCR)
 
+require("pROC")
+require("MLmetrics")
 require("data.table")
 require("lightgbm")
 
@@ -50,8 +52,11 @@ campos_buenos
 set.seed(491)
 nrow(data)
 sample <- sample(c(TRUE, FALSE), nrow(data), replace=TRUE, prob=c(0.7, 0.3))
-dtrain <- data[sample, ]
+dtrain_temp <- data[sample, ]
 dtest <- data[!sample, ]
+sample2 <- sample(c(TRUE, FALSE), nrow(dtrain_temp), replace=TRUE, prob=c(0.7, 0.3))
+dtrain <- dtrain_temp[sample2, ]
+dvalid <- dtrain_temp[!sample2]
 
 #formato que necesita lightGBM
 cat_feats <- c("Gender", "Driving_License", "Region_Code", "Previously_Insured", 
@@ -59,6 +64,9 @@ cat_feats <- c("Gender", "Driving_License", "Region_Code", "Previously_Insured",
 dtrain_f <- lgb.Dataset(data = data.matrix(dtrain[, campos_buenos, with=FALSE]), 
                       label = dtrain[, Response])
 lgb.Dataset.set.categorical(dtrain_f, cat_feats)
+dvalid_f <- lgb.Dataset(data = data.matrix(dvalid[, campos_buenos, with=FALSE]), 
+                        label = dvalid[, Response])
+lgb.Dataset.set.categorical(dvalid_f, cat_feats)
 dtest_f <- lgb.Dataset.create.valid(dtrain_f, 
                       data = data.matrix(dtest[, campos_buenos, with=FALSE]), 
                       label = dtest[, Response])
@@ -75,7 +83,7 @@ params = list(
 )
 
 #validation data
-valids = list(test = dtest_f)
+valids = list(test = dvalid_f)
 
 #train model
 modelo  <- lgb.train( data= dtrain_f,
@@ -92,38 +100,41 @@ print(modelo$best_iter)
 #prediction
 dtest_pred <- data.matrix( dtest[, campos_buenos, with=FALSE ])
 pred = predict(modelo, dtest_pred)
-#pred
 
-#obtener el mejor umbral
+roc_obj <- roc(dtest$Response, pred)
+
+# Obtener los valores de F1 para diferentes umbrales
+coordenadas <- coords(roc_obj, "best", ret=c("threshold", "f1"))
+
+# Obtener el umbral y valor máximo de F1
+umbral_max_f1 <- coordenadas$threshold
+umbral_max_f1
+
+predicciones <- ifelse(pred >= umbral_max_f1, 1, 0)
+
+# Calcular el valor de F1
+f1 <- F1_Score(predicciones, dtest$Response)
+f1
+
+confusionMatrix(table(predicciones, dtest$Response))
+
+
+#umbral de máximo accuracy
 ROCR_pred_test <- prediction(pred, dtest$Response)
-ROCR_perf_test <- performance(ROCR_pred_test,'tpr','fpr')
+ROCR_perf_test <- ROCR::performance(ROCR_pred_test,'tpr','fpr')
 plot(ROCR_perf_test,colorize=TRUE,print.cutoffs.at=seq(0.1,by=0.1))
-cost_perf = performance(ROCR_pred_test, "cost")
+cost_perf = ROCR::performance(ROCR_pred_test, "cost")
 #para reducir los FN a costo de incrementar los FP, obtiene un mejor accuracy
-threshold <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
-threshold
-preds = data.table(id=dtest[,id], target=predict(modelo, dtest_pred))
-colnames(preds)[1] = "id"
+umbral_max_acc <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
+umbral_max_acc
 
-preds[, class := ifelse(target > threshold, 1, 0)]
-#preds
+predicciones_2 <- ifelse(pred >= umbral_max_acc, 1, 0)
 
-#predicho
-preds[class == 0, .N]
-preds[class == 1, .N]
+confusionMatrix(table(predicciones_2, dtest$Response))
 
-#real
-dtest[Response == 0, .N]
-dtest[Response == 1, .N]
+tb_importancia  <-  as.data.table( lgb.importance(modelo) ) 
+tb_importancia
 
-confusion_matrix <- table(PredictedValue = preds$class, ActualValue = dtest$Response)
-confusion_matrix
-
-accuracy <- sum(preds$class == dtest$Response) / nrow(dtest)
-accuracy
-
-results <- data.table("model" = "basic", "auc" = modelo$best_score, "accuracy" = accuracy)
-results
 
 #entrenando un nuevo modelo con los hps obtenidos de la bo del exp1:
   #200 iters
@@ -138,65 +149,60 @@ params = list(
   min_gain_to_split = 0.0,
   lambda_l1= 0.0,
   lambda_l2= 0.0,
-  learning_rate = 0.0053211843396746,
-  feature_fraction = 0.544331366497683,
-  min_data_in_leaf = 71,
-  num_leaves = 40,
+  learning_rate = 0.0153081329445143,
+  feature_fraction = 0.48186684122117,
+  min_data_in_leaf = 23,
+  num_leaves = 34,
   seed = 491
 )
 
 #validation data
-valids = list(test = dtest_f)
+valids = list(test = dvalid_f)
 
 #train model
 modelo  <- lgb.train( data= dtrain_f,
                       param= params,
-                      nrounds = 1984, #alias del num_iterations
+                      nrounds = 543, #alias del num_iterations
                       valids,
-                      early_stopping_rounds = as.integer(50 + 5/0.0053211843396746),
+                      early_stopping_rounds = as.integer(50 + 5/0.0153081329445143),
                       categorical_feature = cat_feats
 )
 
 print(modelo$best_score)
 print(modelo$best_iter)
 
-#prediction
-dtest_pred <- data.matrix( dtest[, campos_buenos, with=FALSE ])
-pred = predict(modelo, dtest_pred)
-#pred
+pred2 = predict(modelo, dtest_pred)
 
-#obtener el mejor umbral
-ROCR_pred_test <- prediction(pred, dtest$Response)
-ROCR_perf_test <- performance(ROCR_pred_test,'tpr','fpr')
-plot(ROCR_perf_test,colorize=TRUE,print.cutoffs.at=seq(0.1,by=0.1))
-cost_perf = performance(ROCR_pred_test, "cost")
+roc_obj <- roc(dtest$Response, pred2)
+
+# Obtener los valores de F1 para diferentes umbrales
+coordenadas <- coords(roc_obj, "best", ret=c("threshold", "f1"))
+
+# Obtener el umbral y valor máximo de F1
+umbral_max_f1_2 <- coordenadas$threshold
+umbral_max_f1_2
+
+predicciones_2 <- ifelse(pred >= umbral_max_f1_2, 1, 0)
+
+# Calcular el valor de F1
+f1 <- F1_Score(predicciones_2, dtest$Response)
+f1
+
+confusionMatrix(table(predicciones_2, dtest$Response))
+
+
+#umbral de máximo accuracy
+ROCR_pred_test <- prediction(pred2, dtest$Response)
+ROCR_perf_test <- ROCR::performance(ROCR_pred_test,'tpr','fpr')
+plot(ROCR_perf_test, colorize=TRUE, print.cutoffs.at=seq(0.1,by=0.1))
+cost_perf = ROCR::performance(ROCR_pred_test, "cost")
 #para reducir los FN a costo de incrementar los FP, obtiene un mejor accuracy
-threshold <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
-threshold
-preds = data.table(id=dtest[,id], target=predict(modelo, dtest_pred))
-colnames(preds)[1] = "id"
+umbral_max_acc_2 <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]]) + 1] 
+umbral_max_acc_2
 
-preds[, class := ifelse(target > threshold, 1, 0)]
-#preds
+predicciones_3 <- ifelse(pred >= umbral_max_acc_2, 1, 0)
 
-#predicho
-preds[class == 0, .N]
-preds[class == 1, .N]
+confusionMatrix(table(predicciones_3, dtest$Response))
 
-#real
-dtest[Response == 0, .N]
-dtest[Response == 1, .N]
-
-confusion_matrix <- table(PredictedValue = preds$class, ActualValue = dtest$Response)
-confusion_matrix
-
-accuracy <- sum(preds$class == dtest$Response) / nrow(dtest)
-accuracy
-
-newResults <- data.table("model" = "exp1", "auc" = modelo$best_score, "accuracy" = accuracy)
-results <- rbindlist(list(results, newResults))
-results
-
-
-
-
+tb_importancia  <-  as.data.table( lgb.importance(modelo) ) 
+tb_importancia

@@ -120,7 +120,7 @@ modelo  <- xgb.train( data= dtrain_f,
                       param= list( objective=       "binary:logistic",
                                    max_depth=           398,#profundidad máxima de un árbo, default=6
                                    min_child_weight=    16,#suma mínima de pesos de la instancia (hessian) necesaria en un hijo, default=1
-                                   eta=                 0.0100318254990385,#alias de learning_rate, default=0.3
+                                   eta=                 c00318254990385,#alias de learning_rate, default=0.3
                                    colsample_bytree=    0.390772162187605,#subsample ratio of columns de cada arbol, default=1
                                    gamma=               14,#alias de min_split_loss, Minimum loss reduction required to make a further partition on a leaf node of the tree, default=0
                                    alpha=               0.0,#L1 regularization
@@ -154,7 +154,7 @@ f1
 confusionMatrix(table(predicciones_3, test_labels$Response))
 
 #maximizando accuracy
-ROCR_pred_test <- prediction(pred, test_labels$Response)
+ROCR_pred_test <- prediction(pred_2, test_labels$Response)
 ROCR_perf_test <- ROCR::performance(ROCR_pred_test, 'tpr', 'fpr')
 plot(ROCR_perf_test, colorize=TRUE, print.cutoffs.at=seq(0.1,by=0.1))
 cost_perf = ROCR::performance(ROCR_pred_test, "cost")
@@ -162,7 +162,7 @@ cost_perf = ROCR::performance(ROCR_pred_test, "cost")
 umbral_max_acc_2 <- ROCR_pred_test@cutoffs[[1]][which.min(cost_perf@y.values[[1]])] 
 umbral_max_acc_2
 
-predicciones_3 <- ifelse(pred >= umbral_max_acc_2, 1, 0)
+predicciones_3 <- ifelse(pred_2 >= umbral_max_acc_2, 1, 0)
 
 confusionMatrix(table(predicciones_3, test_labels$Response))
 
